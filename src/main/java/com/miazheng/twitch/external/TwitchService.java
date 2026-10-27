@@ -9,7 +9,6 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 
-import java.util.ArrayList;
 import java.util.List;
 
 
@@ -49,14 +48,5 @@ public class TwitchService {
 
     public List<Clip> getClips(String gameId, int first) {
         return twitchApiClient.getClips(gameId, first).data();
-    }
-
-
-    public List<String> getTopGameIds() {
-        List<String> topGameIds = new ArrayList<>();
-        for (Game game : getTopGames()) {
-            topGameIds.add(game.id());
-        }
-        return topGameIds;
     }
 }

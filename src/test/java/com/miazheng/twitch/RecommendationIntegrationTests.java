@@ -2,6 +2,7 @@ package com.miazheng.twitch;
 
 
 import com.miazheng.twitch.db.entity.ItemEntity;
+import com.miazheng.twitch.external.model.Game;
 import com.miazheng.twitch.model.TypeGroupedItemList;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
@@ -39,5 +40,16 @@ public class RecommendationIntegrationTests extends IntegrationTest {
         assertThat(items.streams()).extracting(ItemEntity::twitchId).containsExactly("s1002");
         assertThat(items.videos()).extracting(ItemEntity::twitchId).containsExactly("v1002-2");
         assertThat(items.clips()).extracting(ItemEntity::twitchId).containsExactlyInAnyOrder("c1002-1", "c1002-2");
+    }
+
+
+    @Test
+    public void topGames_shouldBeFetchedFromTwitchOnceAndThenCached() {
+        rest.getForObject("/game", Game[].class);
+        rest.getForObject("/recommendation", TypeGroupedItemList.class);
+        request(HttpMethod.GET, "/recommendation", registerAndLogin(), null, TypeGroupedItemList.class);
+
+
+        assertThat(twitch.requestCount("/helix/games/top")).isEqualTo(1);
     }
 }
