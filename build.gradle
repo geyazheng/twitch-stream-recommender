@@ -23,6 +23,9 @@ dependencyManagement {
     }
 }
 
+// Docker Engine 29 rejects the API version that Testcontainers releases before 1.21.4 request
+ext['testcontainers.version'] = '1.21.4'
+
 dependencies {
     implementation 'com.github.ben-manes.caffeine:caffeine:3.2.2'
     implementation 'org.springframework.boot:spring-boot-starter-cache'
@@ -33,6 +36,9 @@ dependencies {
     implementation 'org.springframework.security:spring-security-oauth2-client'
     runtimeOnly 'com.mysql:mysql-connector-j'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testImplementation 'org.testcontainers:mysql'
+    testImplementation 'org.wiremock:wiremock-standalone:3.13.2'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 

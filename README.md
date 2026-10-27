@@ -1,5 +1,7 @@
 # Twitch Stream Recommender
 
+[![CI](https://github.com/geyazheng/twitch-stream-recommender/actions/workflows/ci.yml/badge.svg)](https://github.com/geyazheng/twitch-stream-recommender/actions/workflows/ci.yml)
+
 A Spring Boot REST API that wraps the [Twitch Helix API](https://dev.twitch.tv/docs/api/) and adds user accounts, favorites, and personalized recommendations on top of it.
 
 ## What it does
@@ -99,18 +101,15 @@ curl -b cookies.txt localhost:8080/recommendation
 ## Tests
 
 ```bash
-./gradlew test --tests '*FavoriteServiceTests'
-```
-
-`FavoriteServiceTests` covers the favorite/unfavorite logic with Mockito and needs nothing else running.
-
-`TwitchApplicationTests` starts the full application context, so it needs MySQL up and the Twitch variables set before running the whole suite:
-
-```bash
-docker compose up db -d
-set -a; source .env; set +a
 ./gradlew test
 ```
+
+Needs Docker running, nothing else: no `.env`, no local MySQL, no Twitch credentials.
+
+- **Integration tests** (`*IntegrationTests`) start the real application on a random port and call it over HTTP. MySQL runs in a throwaway container via [Testcontainers](https://testcontainers.com/), and the Twitch token endpoint and Helix API are replaced by a [WireMock](https://wiremock.org/) stub (`TwitchApiStub`) serving a small fixed catalog.
+- **Unit tests** (`FavoriteServiceTests`) cover the favorite logic with Mockito and run without Docker: `./gradlew test --tests '*FavoriteServiceTests'`.
+
+GitHub Actions runs `./gradlew build` on every push to `main` and on every pull request.
 
 ## Project layout
 
