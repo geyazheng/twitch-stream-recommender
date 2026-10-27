@@ -1,0 +1,36 @@
+services:
+  db:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_HOST: '%'
+      MYSQL_DATABASE: twitch
+      MYSQL_ROOT_PASSWORD: ${DATABASE_PASSWORD:-secret}
+      TZ: UTC
+    volumes:
+      - mysql-local:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    healthcheck:
+      # TCP, not the socket: the entrypoint's temporary init server only listens on the socket
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p${DATABASE_PASSWORD:-secret}"]
+      interval: 5s
+      retries: 10
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      TWITCH_CLIENT_ID: ${TWITCH_CLIENT_ID}
+      TWITCH_CLIENT_SECRET: ${TWITCH_CLIENT_SECRET}
+      DATABASE_URL: db
+      DATABASE_PORT: 3306
+      DATABASE_USERNAME: root
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-secret}
+      DATABASE_INIT: ${DATABASE_INIT:-always}
+    ports:
+      - "8080:8080"
+
+volumes:
+  mysql-local:
