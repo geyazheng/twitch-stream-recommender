@@ -16,9 +16,6 @@ public interface FavoriteRecordRepository extends ListCrudRepository<FavoriteRec
     List<FavoriteRecordEntity> findAllByUserId(Long userId);
 
 
-    boolean existsByUserIdAndItemId(Long userId, Long itemId);
-
-
     @Query("SELECT item_id FROM favorite_records WHERE user_id = :userId")
     List<Long> findFavoriteItemIdsByUserId(Long userId);
 
