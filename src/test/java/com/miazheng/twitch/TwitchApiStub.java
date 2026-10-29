@@ -8,6 +8,7 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
@@ -86,7 +87,36 @@ public class TwitchApiStub {
             server.stubFor(get(urlPathEqualTo("/helix/clips"))
                     .withQueryParam("game_id", equalTo(gameId))
                     .willReturn(okJson(data(List.of(clip(gameId, 1), clip(gameId, 2))))));
+
+            // Lookups of single items, as done when one is favorited
+            server.stubFor(get(urlPathEqualTo("/helix/streams"))
+                    .withQueryParam("user_login", equalTo("streamer" + gameId))
+                    .willReturn(okJson(data(List.of(stream(gameId))))));
+            for (int n = 1; n <= 2; n++) {
+                stubVideoLookup(video(gameId, n));
+                server.stubFor(get(urlPathEqualTo("/helix/clips"))
+                        .withQueryParam("id", equalTo("c" + gameId + "-" + n))
+                        .willReturn(okJson(data(List.of(clip(gameId, n))))));
+            }
         }
+    }
+
+
+    /**
+     * Adds a video that Twitch knows by id but that no listing returns, so a test can favorite
+     * an item that no other test has saved. Unknown ids get a 404, like Twitch answers.
+     */
+    public String addVideo(String gameId) {
+        String id = "v" + gameId + "-" + UUID.randomUUID();
+        stubVideoLookup(video(id, gameId, 10));
+        return id;
+    }
+
+
+    private void stubVideoLookup(Map<String, Object> video) {
+        server.stubFor(get(urlPathEqualTo("/helix/videos"))
+                .withQueryParam("id", equalTo((String) video.get("id")))
+                .willReturn(okJson(data(List.of(video)))));
     }
 
 
@@ -113,14 +143,18 @@ public class TwitchApiStub {
 
 
     private static Map<String, Object> video(String gameId, int n) {
-        String id = "v" + gameId + "-" + n;
+        return video("v" + gameId + "-" + n, gameId, 50 * n);
+    }
+
+
+    private static Map<String, Object> video(String id, String gameId, int views) {
         return Map.of(
                 "id", id,
                 "user_name", "streamer" + gameId,
                 "title", "Video " + id,
                 "url", "https://www.twitch.tv/videos/" + id,
                 "thumbnail_url", "https://static-cdn.jtvnw.net/" + id + "-%{width}x%{height}.jpg",
-                "view_count", 50 * n,
+                "view_count", views,
                 "duration", "1h2m3s"
         );
     }

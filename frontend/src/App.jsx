@@ -203,8 +203,8 @@ function App() {
       if (err.status === 401) {
         setUser(null);
         openAuth("login", "Your session ended. Log in again to keep saving favorites.");
-      } else if (err.status !== 400) {
-        // 400 means it was already saved (e.g. a double click); the refresh below shows the real state
+      } else if (err.code !== "duplicate_favorite") {
+        // A duplicate just means it was already saved (e.g. a double click); the refresh below shows the real state
         showError(err);
       }
     } finally {

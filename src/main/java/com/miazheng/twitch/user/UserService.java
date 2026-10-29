@@ -3,6 +3,7 @@ package com.miazheng.twitch.user;
 
 import com.miazheng.twitch.db.UserRepository;
 import com.miazheng.twitch.db.entity.UserEntity;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -34,7 +35,11 @@ public class UserService {
                 .password(passwordEncoder.encode(password))
                 .roles("USER")
                 .build();
-        userDetailsManager.createUser(user);
+        try {
+            userDetailsManager.createUser(user);
+        } catch (DuplicateKeyException e) {
+            throw new DuplicateUsernameException();
+        }
         userRepository.updateNameByUsername(username, firstName, lastName);
     }
 

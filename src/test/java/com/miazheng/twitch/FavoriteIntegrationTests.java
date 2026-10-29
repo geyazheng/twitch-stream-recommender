@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ResponseEntity;
 
 
 import java.util.ArrayList;
@@ -33,7 +34,7 @@ public class FavoriteIntegrationTests extends IntegrationTest {
     @Test
     public void favorite_shouldBeListedRejectedAsDuplicateAndRemovable() {
         String session = registerAndLogin();
-        String twitchId = "video-" + UUID.randomUUID();
+        String twitchId = twitch.addVideo("1001");
         Map<String, Object> body = favoriteVideoBody(twitchId, "1001");
 
 
@@ -44,7 +45,9 @@ public class FavoriteIntegrationTests extends IntegrationTest {
         assertThat(favorites.clips()).isEmpty();
 
 
-        assertThat(favorite(session, body)).isEqualTo(HttpStatus.BAD_REQUEST);
+        ResponseEntity<String> duplicate = request(HttpMethod.POST, "/favorite", session, body, String.class);
+        assertThat(duplicate.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(duplicate.getBody()).contains("duplicate_favorite").doesNotContain("com.miazheng");
 
 
         assertThat(request(HttpMethod.DELETE, "/favorite", session, body, String.class).getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -59,9 +62,87 @@ public class FavoriteIntegrationTests extends IntegrationTest {
     }
 
 
+    // Items are shared between users, so whatever gets stored is what everyone who favorites the
+    // same item sees. Only the id, type and game may come from the client.
+    @Test
+    public void favorite_withForgedMetadata_shouldStoreWhatTwitchSays() {
+        String session = registerAndLogin();
+        String videoId = twitch.addVideo("1002");
+        Map<String, Object> forgedVideo = Map.of("favorite", Map.of(
+                "twitch_id", videoId,
+                "title", "FREE SKINS, log in here",
+                "url", "javascript:alert(document.cookie)",
+                "thumbnail_url", "https://attacker.example/pixel.png",
+                "broadcaster_name", "Twitch Support",
+                "game_id", "1002",
+                "item_type", "VIDEO"
+        ));
+        // Only this test favorites c1003-1, so the item is not already stored
+        Map<String, Object> forgedClip = Map.of("favorite", Map.of(
+                "twitch_id", "c1003-1",
+                "title", "FREE SKINS, log in here",
+                "url", "https://attacker.example",
+                "item_type", "CLIP"
+        ));
+
+
+        assertThat(favorite(session, forgedVideo)).isEqualTo(HttpStatus.OK);
+        assertThat(favorite(session, forgedClip)).isEqualTo(HttpStatus.OK);
+
+
+        TypeGroupedItemList favorites = getFavorites(session);
+        assertThat(favorites.videos()).singleElement().satisfies(video -> {
+            assertThat(video.title()).isEqualTo("Video " + videoId);
+            assertThat(video.url()).isEqualTo("https://www.twitch.tv/videos/" + videoId);
+            assertThat(video.thumbnailUrl()).startsWith("https://static-cdn.jtvnw.net/");
+            assertThat(video.broadcasterName()).isEqualTo("streamer1002");
+            assertThat(video.gameId()).isEqualTo("1002");
+        });
+        assertThat(favorites.clips()).singleElement().satisfies(clip -> {
+            assertThat(clip.title()).isEqualTo("Clip c1003-1");
+            assertThat(clip.url()).isEqualTo("https://clips.twitch.tv/c1003-1");
+            assertThat(clip.gameId()).isEqualTo("1003");
+        });
+    }
+
+
+    @Test
+    public void favorite_ofItemNotOnTwitch_shouldBeRejected() {
+        String session = registerAndLogin();
+
+
+        ResponseEntity<String> response = request(HttpMethod.POST, "/favorite", session,
+                favoriteVideoBody("v1001-made-up", "1001"), String.class);
+
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).contains("unknown_item");
+        assertThat(getFavorites(session).videos()).isEmpty();
+    }
+
+
+    // Twitch cannot look a stream up by id, only by channel, so the claimed channel is checked
+    // against the stream that is actually live there. Only this test favorites s1003.
+    @Test
+    public void favorite_ofStream_shouldMatchTheChannelsLiveStream() {
+        String session = registerAndLogin();
+
+
+        assertThat(favorite(session, favoriteStreamBody("s1003", "https://www.twitch.tv/streamer1002"))).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(favorite(session, favoriteStreamBody("s1003", "https://attacker.example/streamer1003"))).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(favorite(session, favoriteStreamBody("s1003", "https://www.twitch.tv/streamer1003"))).isEqualTo(HttpStatus.OK);
+
+
+        assertThat(getFavorites(session).streams()).singleElement().satisfies(stream -> {
+            assertThat(stream.title()).isEqualTo("Live 1003");
+            assertThat(stream.url()).isEqualTo("https://www.twitch.tv/streamer1003");
+        });
+    }
+
+
     @Test
     public void favorite_sameNewItemByManyUsersAtOnce_shouldSucceedForEveryone() throws Exception {
-        Map<String, Object> body = favoriteVideoBody("video-" + UUID.randomUUID(), "1001");
+        Map<String, Object> body = favoriteVideoBody(twitch.addVideo("1001"), "1001");
         List<String> sessions = new ArrayList<>();
         for (int i = 0; i < CONCURRENT_REQUESTS; i++) {
             sessions.add(registerAndLogin());
@@ -81,7 +162,7 @@ public class FavoriteIntegrationTests extends IntegrationTest {
 
     @Test
     public void favorite_sameItemBySameUserAtOnce_shouldStoreOneAndRejectTheRest() throws Exception {
-        String twitchId = "video-" + UUID.randomUUID();
+        String twitchId = twitch.addVideo("1001");
         Map<String, Object> body = favoriteVideoBody(twitchId, "1001");
         // Another user saves the item first, so the requests below only race on the favorite record
         assertThat(favorite(registerAndLogin(), body)).isEqualTo(HttpStatus.OK);
@@ -98,6 +179,11 @@ public class FavoriteIntegrationTests extends IntegrationTest {
         assertThat(statuses).containsOnly(HttpStatus.OK, HttpStatus.BAD_REQUEST);
         assertThat(statuses).filteredOn(HttpStatus.OK::equals).hasSize(1);
         assertThat(getFavorites(session).videos()).extracting(ItemEntity::twitchId).containsExactly(twitchId);
+    }
+
+
+    private static Map<String, Object> favoriteStreamBody(String twitchId, String url) {
+        return Map.of("favorite", Map.of("twitch_id", twitchId, "url", url, "title", "Live", "item_type", "STREAM"));
     }
 
 
