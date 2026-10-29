@@ -34,8 +34,20 @@ public interface TwitchApiClient {
     );
 
 
+    @GetMapping("/videos")
+    VideoResponse getVideosById(@RequestParam("id") String id);
+
+
     @GetMapping("/clips")
     ClipResponse getClips(@RequestParam("game_id") String gameId, @RequestParam("first") int first);
+
+
+    @GetMapping("/clips")
+    ClipResponse getClipsById(@RequestParam("id") String id);
+
+
+    @GetMapping("/streams")
+    StreamResponse getStreamsByUserLogin(@RequestParam("user_login") String userLogin);
 
 
     @GetMapping("/streams")

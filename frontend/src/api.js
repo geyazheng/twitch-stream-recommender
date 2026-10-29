@@ -1,24 +1,30 @@
 export class ApiError extends Error {
-  constructor(message, status) {
+  constructor(message, status, code = null) {
     super(message);
     this.status = status;
+    this.code = code;
   }
 }
 
-// The backend's own errors carry a readable `message`; Spring's default error body does not
-async function serverMessage(response) {
+// The backend's own errors carry a readable `message` and an `error` code such as
+// "duplicate_favorite"; Spring's default error body has neither
+async function readError(response) {
   try {
     const body = await response.json();
-    return typeof body.message === "string" ? body.message : null;
+    return {
+      message: typeof body.message === "string" ? body.message : null,
+      code: typeof body.error === "string" ? body.error : null,
+    };
   } catch {
-    return null;
+    return { message: null, code: null };
   }
 }
 
 async function call(url, { expect = 200, error, ...options } = {}) {
   const response = await fetch(url, { credentials: "include", ...options });
   if (response.status !== expect) {
-    throw new ApiError((await serverMessage(response)) ?? error, response.status);
+    const { message, code } = await readError(response);
+    throw new ApiError(message ?? error, response.status, code);
   }
   return response;
 }

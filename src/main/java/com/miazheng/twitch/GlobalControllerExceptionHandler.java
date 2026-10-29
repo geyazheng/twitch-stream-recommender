@@ -2,6 +2,7 @@ package com.miazheng.twitch;
 
 
 import com.miazheng.twitch.favorite.DuplicateFavoriteException;
+import com.miazheng.twitch.favorite.UnknownItemException;
 import com.miazheng.twitch.model.TwitchErrorResponse;
 import com.miazheng.twitch.user.DuplicateUsernameException;
 import org.springframework.http.HttpStatus;
@@ -21,6 +22,15 @@ public class GlobalControllerExceptionHandler {
     public final ResponseEntity<TwitchErrorResponse> handleDuplicateFavoriteException(DuplicateFavoriteException e) {
         return new ResponseEntity<>(
                 new TwitchErrorResponse("This item is already in your favorites.", "duplicate_favorite", null),
+                HttpStatus.BAD_REQUEST
+        );
+    }
+
+
+    @ExceptionHandler(UnknownItemException.class)
+    public final ResponseEntity<TwitchErrorResponse> handleUnknownItemException(UnknownItemException e) {
+        return new ResponseEntity<>(
+                new TwitchErrorResponse("Twitch has no such item, or the stream has ended.", "unknown_item", null),
                 HttpStatus.BAD_REQUEST
         );
     }

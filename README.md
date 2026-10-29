@@ -41,7 +41,7 @@ Browser ──▶ Spring Boot (8080)
 | POST | `/login` | no | Form fields `username`, `password`. Returns 204 and a session cookie |
 | POST | `/logout` | yes | Returns 204 |
 | GET | `/favorite` | yes | Current user's favorites, grouped by type |
-| POST | `/favorite` | yes | Body: `{favorite: {twitch_id, title, url, thumbnail_url, broadcaster_name, game_id, item_type}}` |
+| POST | `/favorite` | yes | Body: `{favorite: {twitch_id, item_type, game_id, url, ...}}`. The server looks the item up on Twitch and stores Twitch's title, URL, thumbnail and channel. Only `twitch_id` and `item_type` are trusted, plus `game_id` for videos (Twitch's video object has none) and, for streams, the channel in `url` (`https://www.twitch.tv/<login>`), which must be live with that stream id. Unknown items get 400 `unknown_item` |
 | DELETE | `/favorite` | yes | Same body as POST. Removes the favorite |
 
 Responses use `snake_case` and omit null fields.
