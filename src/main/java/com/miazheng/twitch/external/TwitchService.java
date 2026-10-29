@@ -41,8 +41,10 @@ public class TwitchService {
     }
 
 
+    // Twitch sorts by newest by default, which mostly returns VODs of streams that are still
+    // live: no thumbnail yet and almost no views. This week's most viewed are worth showing.
     public List<Video> getVideos(String gameId, int first) {
-        return twitchApiClient.getVideos(gameId, first).data();
+        return twitchApiClient.getVideos(gameId, first, "views", "week").data();
     }
 
 

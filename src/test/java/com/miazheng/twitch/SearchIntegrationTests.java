@@ -38,6 +38,7 @@ public class SearchIntegrationTests extends IntegrationTest {
 
 
         assertThat(items.streams()).extracting(ItemEntity::twitchId).containsExactly("s1001");
+        assertThat(items.streams()).extracting(ItemEntity::url).containsExactly("https://www.twitch.tv/streamer1001");
         assertThat(items.videos()).extracting(ItemEntity::twitchId).containsExactly("v1001-1", "v1001-2");
         assertThat(items.clips()).extracting(ItemEntity::twitchId).containsExactly("c1001-1", "c1001-2");
         assertThat(items.videos()).allSatisfy(video -> {

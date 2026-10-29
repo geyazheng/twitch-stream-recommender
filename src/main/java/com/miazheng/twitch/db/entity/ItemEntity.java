@@ -34,7 +34,8 @@ public record ItemEntity(
     }
 
 
+    // Twitch has no URL field for a stream; the live stream plays on the channel page
     public ItemEntity(Stream stream) {
-        this(null, stream.id(), stream.title(), null, stream.thumbnailUrl(), stream.userName(), stream.gameId(), ItemType.STREAM);
+        this(null, stream.id(), stream.title(), "https://www.twitch.tv/" + stream.userLogin(), stream.thumbnailUrl(), stream.userName(), stream.gameId(), ItemType.STREAM);
     }
 }

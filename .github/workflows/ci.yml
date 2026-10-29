@@ -30,3 +30,31 @@ jobs:
         with:
           name: test-reports
           path: build/reports/tests/test
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run build
+
+      # The built app is committed, so the backend image needs no Node. The build is
+      # reproducible, so any difference means someone changed frontend/ without rebuilding.
+      - name: Check the committed build is up to date
+        run: |
+          if [ -n "$(git status --porcelain -- ../src/main/resources/public)" ]; then
+            git status --short -- ../src/main/resources/public
+            echo "::error::src/main/resources/public is out of date. Run 'npm run build' in frontend/ and commit the result."
+            exit 1
+          fi

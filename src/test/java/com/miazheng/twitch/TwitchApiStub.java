@@ -80,6 +80,8 @@ public class TwitchApiStub {
                     .willReturn(okJson(data(List.of(stream(gameId))))));
             server.stubFor(get(urlPathEqualTo("/helix/videos"))
                     .withQueryParam("game_id", equalTo(gameId))
+                    .withQueryParam("sort", equalTo("views"))
+                    .withQueryParam("period", equalTo("week"))
                     .willReturn(okJson(data(List.of(video(gameId, 1), video(gameId, 2))))));
             server.stubFor(get(urlPathEqualTo("/helix/clips"))
                     .withQueryParam("game_id", equalTo(gameId))
@@ -100,7 +102,8 @@ public class TwitchApiStub {
     private static Map<String, Object> stream(String gameId) {
         return Map.of(
                 "id", "s" + gameId,
-                "user_name", "streamer" + gameId,
+                "user_login", "streamer" + gameId,
+                "user_name", "Streamer" + gameId,
                 "game_id", gameId,
                 "title", "Live " + gameId,
                 "viewer_count", 100,
