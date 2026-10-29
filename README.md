@@ -46,7 +46,7 @@ Responses use `snake_case` and omit null fields.
 ### Recommendation logic
 
 1. Collect the user's favorited items. Take the distinct `game_id`s as seeds (max 3). If none, use Twitch's top games.
-2. For each seed game, fetch streams, videos and clips from Twitch (20 items split across seeds).
+2. For each seed game, fetch live streams, this week's most-viewed videos, and clips from Twitch (20 items split across seeds).
 3. Drop anything the user has already favorited.
 4. Cache the result for one minute per user.
 

@@ -26,7 +26,12 @@ public interface TwitchApiClient {
 
 
     @GetMapping("/videos")
-    VideoResponse getVideos(@RequestParam("game_id") String gameId, @RequestParam("first") int first);
+    VideoResponse getVideos(
+            @RequestParam("game_id") String gameId,
+            @RequestParam("first") int first,
+            @RequestParam("sort") String sort,
+            @RequestParam("period") String period
+    );
 
 
     @GetMapping("/clips")
