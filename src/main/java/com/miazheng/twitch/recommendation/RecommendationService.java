@@ -5,6 +5,7 @@ import com.miazheng.twitch.db.entity.ItemEntity;
 import com.miazheng.twitch.db.entity.UserEntity;
 import com.miazheng.twitch.external.TwitchService;
 import com.miazheng.twitch.external.model.Clip;
+import com.miazheng.twitch.external.model.Game;
 import com.miazheng.twitch.external.model.Stream;
 import com.miazheng.twitch.external.model.Video;
 import com.miazheng.twitch.favorite.FavoriteService;
@@ -34,6 +35,17 @@ public class RecommendationService {
     public RecommendationService(TwitchService twitchService, FavoriteService favoriteService) {
         this.twitchService = twitchService;
         this.favoriteService = favoriteService;
+    }
+
+
+    // Calls getTopGames() through the TwitchService proxy, so the top_games cache applies.
+    // A call from inside TwitchService itself would bypass it.
+    private List<String> getTopGameIds() {
+        List<String> topGameIds = new ArrayList<>();
+        for (Game game : twitchService.getTopGames()) {
+            topGameIds.add(game.id());
+        }
+        return topGameIds;
     }
 
 
@@ -82,11 +94,11 @@ public class RecommendationService {
         List<String> gameIds;
         Set<String> exclusions = new HashSet<>();
         if (userEntity == null) {
-            gameIds  = twitchService.getTopGameIds();
+            gameIds  = getTopGameIds();
         } else {
             List<ItemEntity> items = favoriteService.getFavoriteItems(userEntity);
             if (items.isEmpty()) {
-                gameIds = twitchService.getTopGameIds();
+                gameIds = getTopGameIds();
             } else {
                 Set<String> uniqueGameIds = new HashSet<>();
                 for (ItemEntity item : items) {
