@@ -83,16 +83,21 @@ public abstract class IntegrationTest {
     }
 
 
+    protected ResponseEntity<String> login(String username, String password) {
+        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+        form.add("username", username);
+        form.add("password", password);
+        return rest.postForEntity("/login", form, String.class);
+    }
+
+
     /** Registers a new user, logs in, and returns the session cookie to send with later requests. */
     protected String registerAndLogin() {
         String username = newUsername();
         assertThat(register(username, "pass1234")).isEqualTo(HttpStatus.OK);
 
 
-        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
-        form.add("username", username);
-        form.add("password", "pass1234");
-        ResponseEntity<String> login = rest.postForEntity("/login", form, String.class);
+        ResponseEntity<String> login = login(username, "pass1234");
         assertThat(login.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         return login.getHeaders().getFirst(HttpHeaders.SET_COOKIE).split(";", 2)[0];
     }

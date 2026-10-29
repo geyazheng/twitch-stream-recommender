@@ -2,7 +2,9 @@ package com.miazheng.twitch;
 
 
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
 
 import java.util.Map;
@@ -34,6 +36,27 @@ public class UserIntegrationTests extends IntegrationTest {
         assertThat(register(newUsername(), "short")).isEqualTo(HttpStatus.BAD_REQUEST);
         // 25 characters but 75 bytes in UTF-8, past the 72 bytes BCrypt can hash
         assertThat(register(newUsername(), "密".repeat(25))).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+
+    // The per-address limit is covered by LoginThrottleFilterTests: every test here comes from
+    // 127.0.0.1, so tripping it would lock out the rest of the suite
+    @Test
+    public void login_afterTooManyWrongPasswords_shouldBeRefused() {
+        String username = newUsername();
+        assertThat(register(username, "pass1234")).isEqualTo(HttpStatus.OK);
+        for (int i = 0; i < 5; i++) {
+            assertThat(login(username, "wrong-password").getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+
+
+        ResponseEntity<String> refused = login(username, "pass1234");
+
+
+        assertThat(refused.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        assertThat(refused.getHeaders().getFirst(HttpHeaders.RETRY_AFTER)).isNotBlank();
+        assertThat(refused.getBody()).contains("too_many_login_attempts");
+        assertThat(registerAndLogin()).isNotBlank();
     }
 
 
