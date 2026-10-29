@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ResponseEntity;
 
 
 import java.util.ArrayList;
@@ -44,7 +45,9 @@ public class FavoriteIntegrationTests extends IntegrationTest {
         assertThat(favorites.clips()).isEmpty();
 
 
-        assertThat(favorite(session, body)).isEqualTo(HttpStatus.BAD_REQUEST);
+        ResponseEntity<String> duplicate = request(HttpMethod.POST, "/favorite", session, body, String.class);
+        assertThat(duplicate.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(duplicate.getBody()).contains("duplicate_favorite").doesNotContain("com.miazheng");
 
 
         assertThat(request(HttpMethod.DELETE, "/favorite", session, body, String.class).getStatusCode()).isEqualTo(HttpStatus.OK);

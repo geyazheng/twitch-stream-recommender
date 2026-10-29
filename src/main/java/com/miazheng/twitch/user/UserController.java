@@ -4,6 +4,7 @@ package com.miazheng.twitch.user;
 
 
 import com.miazheng.twitch.model.RegisterBody;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -25,7 +26,7 @@ public class UserController {
 
     @PostMapping("/register")
     @ResponseStatus(value = HttpStatus.OK)
-    public void register(@RequestBody RegisterBody body) {
+    public void register(@Valid @RequestBody RegisterBody body) {
         userService.register(body.username(), body.password(), body.firstName(), body.lastName());
     }
 }

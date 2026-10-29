@@ -30,6 +30,9 @@ public class AppConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth ->
                         auth
+                                // Spring Boot forwards failed requests here to render the error. Without this,
+                                // every error reached an anonymous user as 401, whatever its real status.
+                                .requestMatchers("/error").permitAll()
                                 .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
                                 .requestMatchers(HttpMethod.GET, "/", "/index.html", "/*.json", "/*.png", "/static/**").permitAll()
                                 .requestMatchers(HttpMethod.POST, "/login", "/register", "/logout").permitAll()

@@ -68,16 +68,25 @@ public abstract class IntegrationTest {
     }
 
 
-    /** Registers a new user, logs in, and returns the session cookie to send with later requests. */
-    protected String registerAndLogin() {
-        String username = "user-" + UUID.randomUUID();
-        ResponseEntity<String> registered = rest.postForEntity("/register", Map.of(
+    protected static String newUsername() {
+        return "user-" + UUID.randomUUID();
+    }
+
+
+    protected HttpStatusCode register(String username, String password) {
+        return rest.postForEntity("/register", Map.of(
                 "username", username,
-                "password", "pass1234",
+                "password", password,
                 "first_name", "Test",
                 "last_name", "User"
-        ), String.class);
-        assertThat(registered.getStatusCode()).isEqualTo(HttpStatus.OK);
+        ), String.class).getStatusCode();
+    }
+
+
+    /** Registers a new user, logs in, and returns the session cookie to send with later requests. */
+    protected String registerAndLogin() {
+        String username = newUsername();
+        assertThat(register(username, "pass1234")).isEqualTo(HttpStatus.OK);
 
 
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();

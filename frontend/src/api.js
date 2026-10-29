@@ -5,10 +5,20 @@ export class ApiError extends Error {
   }
 }
 
+// The backend's own errors carry a readable `message`; Spring's default error body does not
+async function serverMessage(response) {
+  try {
+    const body = await response.json();
+    return typeof body.message === "string" ? body.message : null;
+  } catch {
+    return null;
+  }
+}
+
 async function call(url, { expect = 200, error, ...options } = {}) {
   const response = await fetch(url, { credentials: "include", ...options });
   if (response.status !== expect) {
-    throw new ApiError(error, response.status);
+    throw new ApiError((await serverMessage(response)) ?? error, response.status);
   }
   return response;
 }

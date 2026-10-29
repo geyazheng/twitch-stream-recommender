@@ -21,6 +21,19 @@ const COPY = {
   },
 };
 
+// Same rules as RegisterBody on the backend
+const USERNAME_PATTERN = /^[A-Za-z0-9_.-]{3,50}$/;
+const REGISTER_PASSWORD_RULES = [
+  { min: 8, message: "Use at least 8 characters" },
+  {
+    // BCrypt only hashes 72 bytes; non-Latin characters take 2 to 4 bytes each
+    validator: (_rule, value) =>
+      !value || new TextEncoder().encode(value).length <= 72
+        ? Promise.resolve()
+        : Promise.reject(new Error("That password is too long")),
+  },
+];
+
 function AuthModal({ open, mode, notice, onModeChange, onClose, onAuthenticated }) {
   const { message } = App.useApp();
   const [submitting, setSubmitting] = useState(false);
@@ -50,7 +63,14 @@ function AuthModal({ open, mode, notice, onModeChange, onClose, onAuthenticated 
       </div>
 
       <Form key={mode} layout="vertical" requiredMark={false} onFinish={onFinish}>
-        <Form.Item name="username" label="Username" rules={[{ required: true, message: "Enter your username" }]}>
+        <Form.Item
+          name="username"
+          label="Username"
+          rules={[
+            { required: true, message: "Enter your username" },
+            ...(mode === "register" ? [{ pattern: USERNAME_PATTERN, message: "Use 3 to 50 letters, digits, '.', '_' or '-'" }] : []),
+          ]}
+        >
           <Input prefix={<UserOutlined />} autoComplete="username" autoFocus />
         </Form.Item>
         <Form.Item
@@ -58,7 +78,7 @@ function AuthModal({ open, mode, notice, onModeChange, onClose, onAuthenticated 
           label="Password"
           rules={[
             { required: true, message: "Enter your password" },
-            ...(mode === "register" ? [{ min: 8, message: "Use at least 8 characters" }] : []),
+            ...(mode === "register" ? REGISTER_PASSWORD_RULES : []),
           ]}
         >
           <Input.Password
