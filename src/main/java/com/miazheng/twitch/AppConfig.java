@@ -17,6 +17,8 @@ import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 
 
 import javax.sql.DataSource;
@@ -28,8 +30,18 @@ public class AppConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        // Double-submit CSRF protection for the single-page app: the token is in a cookie the
+        // page can read, and state-changing requests must echo it in the X-XSRF-TOKEN header.
+        // Another site's page cannot read our cookies, so it cannot forge that header.
+        CsrfTokenRequestAttributeHandler csrfTokenHandler = new CsrfTokenRequestAttributeHandler();
+        // Load the token on every request instead of on first use, so the cookie already exists
+        // when the page sends its first POST (login or register)
+        csrfTokenHandler.setCsrfRequestAttributeName(null);
         http
-                .csrf(csrf -> csrf.disable())
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .csrfTokenRequestHandler(csrfTokenHandler)
+                )
                 .authorizeHttpRequests(auth ->
                         auth
                                 // Spring Boot forwards failed requests here to render the error. Without this,

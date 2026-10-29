@@ -39,6 +39,14 @@ spring:
     caffeine:
       spec: expireAfterWrite=1m
 
+server:
+  servlet:
+    session:
+      cookie:
+        # Chrome already treats cookies without SameSite as Lax; Firefox and Safari do not.
+        # Lax keeps the session cookie off cross-site POST/DELETE, on top of the CSRF token.
+        same-site: lax
+
 logging:
   level:
     com.miazheng.twitch.external.TwitchApiClient: ${TWITCH_LOG_LEVEL:INFO}

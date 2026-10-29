@@ -3,6 +3,7 @@ package com.miazheng.twitch;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -62,7 +63,7 @@ public class UserIntegrationTests extends IntegrationTest {
 
     @Test
     public void register_withInvalidField_shouldSayWhatIsWrong() {
-        String body = rest.postForEntity("/register", Map.of("username", "ab", "password", "pass1234"), String.class).getBody();
+        String body = request(HttpMethod.POST, "/register", null, Map.of("username", "ab", "password", "pass1234"), String.class).getBody();
 
 
         assertThat(body).contains("invalid_request", "username", "Username must be 3 to 50");

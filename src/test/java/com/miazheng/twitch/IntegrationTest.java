@@ -21,6 +21,8 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -59,6 +61,9 @@ public abstract class IntegrationTest {
     private CacheManager cacheManager;
 
 
+    private volatile String csrfToken;
+
+
     @BeforeEach
     void resetCachesAndTwitchRequests() {
         for (String name : cacheManager.getCacheNames()) {
@@ -74,12 +79,13 @@ public abstract class IntegrationTest {
 
 
     protected HttpStatusCode register(String username, String password) {
-        return rest.postForEntity("/register", Map.of(
+        Map<String, String> body = Map.of(
                 "username", username,
                 "password", password,
                 "first_name", "Test",
                 "last_name", "User"
-        ), String.class).getStatusCode();
+        );
+        return request(HttpMethod.POST, "/register", null, body, String.class).getStatusCode();
     }
 
 
@@ -87,7 +93,7 @@ public abstract class IntegrationTest {
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("username", username);
         form.add("password", password);
-        return rest.postForEntity("/login", form, String.class);
+        return rest.exchange("/login", HttpMethod.POST, new HttpEntity<>(form, browserHeaders(HttpMethod.POST, null)), String.class);
     }
 
 
@@ -99,17 +105,53 @@ public abstract class IntegrationTest {
 
         ResponseEntity<String> login = login(username, "pass1234");
         assertThat(login.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
-        return login.getHeaders().getFirst(HttpHeaders.SET_COOKIE).split(";", 2)[0];
+        return "JSESSIONID=" + cookieValue(login, "JSESSIONID");
     }
 
 
     protected <T> ResponseEntity<T> request(HttpMethod method, String path, String session, Object body, Class<T> responseType) {
-        HttpHeaders headers = new HttpHeaders();
-        if (session != null) {
-            headers.add(HttpHeaders.COOKIE, session);
-        }
+        HttpHeaders headers = browserHeaders(method, session);
         headers.setContentType(MediaType.APPLICATION_JSON);
         return rest.exchange(path, method, new HttpEntity<>(body, headers), responseType);
+    }
+
+
+    // What the frontend sends: the session cookie if logged in, and on anything but GET the
+    // CSRF token twice, as the XSRF-TOKEN cookie and the X-XSRF-TOKEN header
+    private HttpHeaders browserHeaders(HttpMethod method, String session) {
+        HttpHeaders headers = new HttpHeaders();
+        List<String> cookies = new ArrayList<>();
+        if (session != null) {
+            cookies.add(session);
+        }
+        if (method != HttpMethod.GET) {
+            cookies.add("XSRF-TOKEN=" + csrfToken());
+            headers.add("X-XSRF-TOKEN", csrfToken());
+        }
+        if (!cookies.isEmpty()) {
+            headers.add(HttpHeaders.COOKIE, String.join("; ", cookies));
+        }
+        return headers;
+    }
+
+
+    // The token the server hands out with any response; one serves a whole test
+    private String csrfToken() {
+        if (csrfToken == null) {
+            csrfToken = cookieValue(rest.getForEntity("/", String.class), "XSRF-TOKEN");
+        }
+        return csrfToken;
+    }
+
+
+    private static String cookieValue(ResponseEntity<?> response, String name) {
+        List<String> setCookies = response.getHeaders().getOrDefault(HttpHeaders.SET_COOKIE, List.of());
+        for (String setCookie : setCookies) {
+            if (setCookie.startsWith(name + "=")) {
+                return setCookie.substring(name.length() + 1).split(";", 2)[0];
+            }
+        }
+        throw new AssertionError("No " + name + " cookie in " + setCookies);
     }
 
 

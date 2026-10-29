@@ -37,14 +37,16 @@ Browser ──▶ Spring Boot (8080)
 | GET | `/game` | no | Top games. With `?game_name=` searches games by name |
 | GET | `/search?game_id=` | no | Streams, videos and clips for a game, grouped by type |
 | GET | `/recommendation` | optional | Recommendations. Personalized if logged in, otherwise based on top games |
-| POST | `/register` | no | Body: `{username, password, first_name, last_name}` |
-| POST | `/login` | no | Form fields `username`, `password`. Returns 204 and a session cookie |
+| POST | `/register` | no | Body: `{username, password, first_name, last_name}`. 400 `invalid_request` names the bad field; 409 `username_taken` |
+| POST | `/login` | no | Form fields `username`, `password`. Returns 204 and a session cookie; 429 with `Retry-After` after too many failures |
 | POST | `/logout` | yes | Returns 204 |
 | GET | `/favorite` | yes | Current user's favorites, grouped by type |
 | POST | `/favorite` | yes | Body: `{favorite: {twitch_id, item_type, game_id, url, ...}}`. The server looks the item up on Twitch and stores Twitch's title, URL, thumbnail and channel. Only `twitch_id` and `item_type` are trusted, plus `game_id` for videos (Twitch's video object has none) and, for streams, the channel in `url` (`https://www.twitch.tv/<login>`), which must be live with that stream id. Unknown items get 400 `unknown_item` |
 | DELETE | `/favorite` | yes | Same body as POST. Removes the favorite |
 
-Responses use `snake_case` and omit null fields.
+Responses use `snake_case` and omit null fields. Errors from the app look like `{message, error, details}`, where `error` is a stable code.
+
+Every `POST` and `DELETE`, including login and register, must send the CSRF token: copy the `XSRF-TOKEN` cookie, which any response sets, into an `X-XSRF-TOKEN` header. Without it the request gets 403.
 
 ### Recommendation logic
 
@@ -94,12 +96,26 @@ Open <http://localhost:8080> for the app; the API is on the same port. On first 
 curl 'localhost:8080/game'
 curl 'localhost:8080/search?game_id=33214'
 
-curl -X POST localhost:8080/register -H 'Content-Type: application/json' \
+# Get a CSRF token first: any response sets the XSRF-TOKEN cookie
+curl -s -c cookies.txt -o /dev/null localhost:8080/
+TOKEN=$(awk '$6 == "XSRF-TOKEN" {print $7}' cookies.txt)
+
+curl -b cookies.txt -c cookies.txt -X POST localhost:8080/register \
+  -H "X-XSRF-TOKEN: $TOKEN" -H 'Content-Type: application/json' \
   -d '{"username":"alice","password":"pass1234","first_name":"Alice","last_name":"Lee"}'
 
-curl -c cookies.txt -X POST localhost:8080/login -d 'username=alice&password=pass1234'
+curl -b cookies.txt -c cookies.txt -X POST localhost:8080/login \
+  -H "X-XSRF-TOKEN: $TOKEN" -d 'username=alice&password=pass1234'
 curl -b cookies.txt localhost:8080/recommendation
 ```
+
+## Security
+
+- **Passwords** are hashed with BCrypt. Sign-up requires a username of 3 to 50 `[A-Za-z0-9_.-]` characters, and a password of at least 8 characters and at most 72 bytes, the most BCrypt hashes.
+- **Sessions and CSRF.** The session cookie is `HttpOnly` and `SameSite=Lax`. Every state-changing request must also echo the `XSRF-TOKEN` cookie in an `X-XSRF-TOKEN` header (double-submit token). Another site's page cannot read that cookie, so it cannot forge the request.
+- **Login throttling.** After 5 failed logins for one username, or 20 from one address, `/login` answers 429 until 15 minutes pass without a failure (`LoginThrottleFilter`). The counters are in memory and per instance.
+- **Untrusted input.** A favorited item is looked up on Twitch, and only Twitch's title, link and thumbnail are stored. A client cannot plant content that other users see. Error bodies carry stable codes, not exception class names.
+- **Dependencies.** Dependabot proposes updates. Transitive dependencies with known CVEs are pinned to patched releases in `build.gradle`. The one known issue left, in `spring-webmvc` 6.2.19, needs SSE fragment rendering or `XsltView`, and this app uses neither.
 
 ## Frontend
 
@@ -131,12 +147,12 @@ GitHub Actions runs `./gradlew build` and the frontend build check on every push
 
 ```
 src/main/java/com/miazheng/twitch
-├── AppConfig.java              Spring Security filter chain, JDBC user store, password encoder
+├── AppConfig.java              Spring Security filter chain (CSRF, login throttle), JDBC user store, password encoder
 ├── external/                   Feign client + Twitch response models, TwitchService, GameController
 ├── item/                       /search
 ├── favorite/                   /favorite
 ├── recommendation/             /recommendation
-├── user/                       /register
+├── user/                       /register, login throttling
 ├── db/                         Spring Data JDBC repositories and entities
 └── model/                      Request/response DTOs
 src/main/resources

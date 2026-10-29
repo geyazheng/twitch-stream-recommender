@@ -20,8 +20,20 @@ async function readError(response) {
   }
 }
 
-async function call(url, { expect = 200, error, ...options } = {}) {
-  const response = await fetch(url, { credentials: "include", ...options });
+// The backend only accepts state-changing requests that copy its XSRF-TOKEN cookie into this
+// header. Another site's page cannot read our cookies, so it cannot forge such a request.
+function csrfHeader() {
+  const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+  return match ? { "X-XSRF-TOKEN": decodeURIComponent(match[1]) } : {};
+}
+
+async function call(url, { expect = 200, error, headers, ...options } = {}) {
+  const isGet = (options.method ?? "GET") === "GET";
+  const response = await fetch(url, {
+    credentials: "include",
+    ...options,
+    headers: isGet ? headers : { ...headers, ...csrfHeader() },
+  });
   if (response.status !== expect) {
     const { message, code } = await readError(response);
     throw new ApiError(message ?? error, response.status, code);
