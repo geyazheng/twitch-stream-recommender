@@ -21,3 +21,6 @@ Thumbs.db
 # Secrets
 .env
 *.local.yml
+
+# Frontend
+node_modules/

@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/geyazheng/twitch-stream-recommender/actions/workflows/ci.yml/badge.svg)](https://github.com/geyazheng/twitch-stream-recommender/actions/workflows/ci.yml)
 
-A Spring Boot REST API that wraps the [Twitch Helix API](https://dev.twitch.tv/docs/api/) and adds user accounts, favorites, and personalized recommendations on top of it.
+A Spring Boot REST API that wraps the [Twitch Helix API](https://dev.twitch.tv/docs/api/) and adds user accounts, favorites, and personalized recommendations on top of it, with a React frontend served by the same app.
 
 ## What it does
 
@@ -14,7 +14,8 @@ A Spring Boot REST API that wraps the [Twitch Helix API](https://dev.twitch.tv/d
 ## Architecture
 
 ```
-Client ──▶ Spring Boot (8080)
+Browser ──▶ Spring Boot (8080)
+             ├─ Static files         React app built from frontend/ into src/main/resources/public
              ├─ Spring Security      form login, session auth, BCrypt via DelegatingPasswordEncoder
              ├─ Controllers          /game /search /register /favorite /recommendation
              ├─ Services             TwitchService, FavoriteService, RecommendationService
@@ -25,7 +26,9 @@ Client ──▶ Spring Boot (8080)
 
 ## Tech stack
 
-Java 21 · Spring Boot 3.5 · Spring Security · Spring Cloud OpenFeign · Spring Data JDBC · MySQL 8 · Caffeine · Gradle · Docker
+**Backend:** Java 21 · Spring Boot 3.5 · Spring Security · Spring Cloud OpenFeign · Spring Data JDBC · MySQL 8 · Caffeine · Gradle · Docker
+
+**Frontend:** React 19 · Ant Design 6 · Vite
 
 ## API
 
@@ -83,7 +86,7 @@ set -a; source .env; set +a
 ./gradlew bootRun
 ```
 
-The API is at <http://localhost:8080>. On first start the schema is created from `src/main/resources/database-init.sql` (`DATABASE_INIT=always` drops and recreates tables; set it to `never` once you have data you want to keep).
+Open <http://localhost:8080> for the app; the API is on the same port. On first start the schema is created from `src/main/resources/database-init.sql` (`DATABASE_INIT=always` drops and recreates tables; set it to `never` once you have data you want to keep).
 
 ### 3. Try it
 
@@ -98,6 +101,19 @@ curl -c cookies.txt -X POST localhost:8080/login -d 'username=alice&password=pas
 curl -b cookies.txt localhost:8080/recommendation
 ```
 
+## Frontend
+
+The React app lives in `frontend/` (Vite, Ant Design with a custom dark theme). Node 22 is needed only to work on it, not to run the app.
+
+```bash
+cd frontend
+npm ci
+npm run dev     # http://localhost:5173, proxies API calls to the backend on :8080
+npm run build   # writes the production build to ../src/main/resources/public
+```
+
+The production build is committed, so the Docker image and `./gradlew bootRun` serve it without a Node step. The build is reproducible, and CI rebuilds it and fails if the committed files differ: after changing anything in `frontend/`, run `npm run build` and commit the result.
+
 ## Tests
 
 ```bash
@@ -109,7 +125,7 @@ Needs Docker running, nothing else: no `.env`, no local MySQL, no Twitch credent
 - **Integration tests** (`*IntegrationTests`) start the real application on a random port and call it over HTTP. MySQL runs in a throwaway container via [Testcontainers](https://testcontainers.com/), and the Twitch token endpoint and Helix API are replaced by a [WireMock](https://wiremock.org/) stub (`TwitchApiStub`) serving a small fixed catalog.
 - **Unit tests** (`FavoriteServiceTests`) cover the favorite logic with Mockito and run without Docker: `./gradlew test --tests '*FavoriteServiceTests'`.
 
-GitHub Actions runs `./gradlew build` on every push to `main` and on every pull request.
+GitHub Actions runs `./gradlew build` and the frontend build check on every push to `main` and on every pull request.
 
 ## Project layout
 
@@ -125,5 +141,11 @@ src/main/java/com/miazheng/twitch
 └── model/                      Request/response DTOs
 src/main/resources
 ├── application.yml
-└── database-init.sql
+├── database-init.sql
+└── public/                     Production build of frontend/ (generated, do not edit)
+frontend/src
+├── App.jsx                     Page state: session, current view, favorites
+├── api.js                      Calls to the backend
+├── theme.js, styles.css        Dark theme (antd tokens + CSS variables)
+└── components/                 Header, sidebar, item grid and cards, favorites drawer, login/sign-up dialog
 ```
